@@ -4,18 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Watched Movies Matrix (Shared)</title>
-  /* Force normal table layout on all screen sizes (disables card layout) */
-thead{ display: table-header-group !important; }
-table{ display: table !important; }
-tbody{ display: table-row-group !important; }
-tr{ display: table-row !important; }
-td, th{ display: table-cell !important; }
-tbody td::before{ content: none !important; }
-  /* --- Reduce Title column width + allow wrapping --- */
-table { 
-  table-layout: fixed; 
-}
-
+  
 th[data-key="title"],
 td[data-label="Title"]{
   width: 28%;
