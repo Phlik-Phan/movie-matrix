@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Watched Movies Matrix (Shared)</title>
+  <style>
+    :root{
+      --bg:#f3f4f6; --card:#ffffff; --text:#111827; --muted:#6b7280;
+      --border:rgba(0,0,0,.12); --shadow:0 8px 24px rgba(0,0,0,.08); --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;background:var(--bg);color:var(--text);padding:16px}
+    .wrap{max-width:1100px;margin:0 auto;display:grid;gap:12px}
+    header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+    h1{margin:0;font-size:20px}
+    .sub{margin-top:4px;color:var(--muted);font-size:13px}
+    .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 2px}
+    input{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text);outline:none}
+    input:focus{box-shadow:0 0 0 3px rgba(37,99,235,.18);border-color:rgba(37,99,235,.45)}
+    .field{min-width:220px;flex:1}
+    button{border:1px solid var(--border);background:rgba(37,99,235,.10);border-color:rgba(37,99,235,.25);color:var(--text);padding:10px 12px;border-radius:12px;cursor:pointer;user-select:none;white-space:nowrap}
+    button:hover{background:rgba(37,99,235,.16)}
+    .status{margin-top:8px;color:var(--muted);font-size:12px}
+    .tableWrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+    table{width:100%;border-collapse:collapse;min-width:860px;background:#fff}
+    thead th{text-align:left;padding:12px;font-size:12px;color:rgba(17,24,39,.85);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;background:#f9fafb;position:sticky;top:0}
+    thead th .arrow{font-size:10px;color:rgba(17,24,39,.45);margin-left:6px}
+    tbody td{padding:12px;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
+    tbody tr:hover{background:#f3f4f6}
+    @media (max-width: 820px){
+      .tableWrap{overflow:visible;border:none}
+      table{min-width:0}
+      thead{display:none}
+      table, tbody, tr, td{display:block;width:100%}
+      tbody tr{border:1px solid var(--border);border-radius:var(--radius);padding:10px;margin-bottom:10px}
+      tbody td{border:none;padding:8px;display:flex;justify-content:space-between;gap:10px}
+      tbody td::before{content: attr(data-label);color:var(--muted);font-size:12px;width:42%;min-width:120px}
+    }
+.legendGrid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 4px 14px;
+}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Watched Movies Matrix</h1>
+        <div class="sub">Shared read-only list • Click headers to sort • Search by title • Updated: 2026-01-27</div>
+      </div>
+      <div class="sub">Build: shared-readonly-2026-01-27</div>
+    </header>
+
+    <section class="panel">
+      <div class="sub" style="font-weight:600;margin-bottom:6px;">Rating Legend</div>
+      <div class="legendGrid">
+  <div class="sub">1: Really bad...</div>
+  <div class="sub">2: Bad but...</div>
+  <div class="sub">3: Good...</div>
+  <div class="sub">4: Really Good!</div>
+  <div class="sub">5: Truly Exceptional!!</div>
+</div>
+    </section>
+
+    <section class="panel">
+      <div class="row">
+        <div class="field">
+          <label for="searchTitle">Search by Title</label>
+          <input id="searchTitle" type="search" placeholder="Type a title..." autocomplete="off" />
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <button id="downloadBtn" type="button">Download CSV</button>
+        </div>
+      </div>
+      <div class="status" id="status">Ready.</div>
+    </section>
+
+    <section class="panel">
+      <div class="tableWrap">
+        <table id="moviesTable">
+          <thead>
+            <tr>
+              <th data-key="title">Title <span class="arrow" id="arrow-title">↕</span></th>
+              <th data-key="rating">Rating <span class="arrow" id="arrow-rating">↕</span></th>
+              <th data-key="service">Service <span class="arrow" id="arrow-service">↕</span></th>
+              <th data-key="watched">Watched Date <span class="arrow" id="arrow-watched">↕</span></th>
+              <th data-key="released">Released <span class="arrow" id="arrow-released">↕</span></th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+<script>
+  let movies = [];
+  let sortKey = "title";
+  let sortDir = "asc";
+
+  const el = {
+    status: document.getElementById("status"),
+    searchTitle: document.getElementById("searchTitle"),
+    downloadBtn: document.getElementById("downloadBtn"),
+    tbody: document.getElementById("tbody"),
+    table: document.getElementById("moviesTable"),
+  };
+
+  function setStatus(msg){ el.status.textContent = msg; }
+
+  function parseCSV(text){
+    const rows = [];
+    let i = 0, field = "", row = [], inQuotes = false;
+
+    while (i < text.length){
+      const c = text[i];
+
+      if (c === '"'){
+        if (inQuotes && text[i+1] === '"'){ field += '"'; i += 2; continue; }
+        inQuotes = !inQuotes; i++; continue;
+      }
+      if (!inQuotes && c === ","){ row.push(field); field = ""; i++; continue; }
+      if (!inQuotes && (c === "\n" || c === "\r")){
+        if (c === "\r" && text[i+1] === "\n") i++;
+        row.push(field); field = "";
+        if (row.length && !(row.length === 1 && row[0].trim() === "")) rows.push(row);
+        row = [];
+        i++; continue;
+      }
+      field += c; i++;
+    }
+
+    if (field.length || row.length){
+      row.push(field);
+      if (row.length && !(row.length === 1 && row[0].trim() === "")) rows.push(row);
+    }
+
+    if (!rows.length) return [];
+
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    const idx = (name) => header.indexOf(name);
+
+    const iTitle = idx("title");
+    const iRating = idx("rating");
+    const iService = idx("service");
+    const iWatched = idx("watched");
+    const iReleased = idx("released");
+
+    return rows.slice(1).map(r => ({
+      title: (r[iTitle] ?? "").trim(),
+      rating: (r[iRating] ?? "").trim(),
+      service: (r[iService] ?? "").trim(),
+      watched: (r[iWatched] ?? "").trim(),
+      released: (r[iReleased] ?? "").trim(),
+    })).filter(m => m.title);
+  }
+
+  async function loadMovies(){
+    try{
+      setStatus("Loading movies...");
+      const res = await fetch("watched-movies.csv", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const text = await res.text();
+      movies = parseCSV(text);
+      render();
+    }catch(e){
+      console.error(e);
+      setStatus("Could not load watched-movies.csv.");
+    }
+  }
+
+  function compare(a,b,key){
+    const dir = (sortDir === "asc") ? 1 : -1;
+    let va = a[key];
+    let vb = b[key];
+
+    if (key === "title" || key === "service"){
+      va = String(va || "").toLowerCase();
+      vb = String(vb || "").toLowerCase();
+      if (va < vb) return -1 * dir;
+      if (va > vb) return  1 * dir;
+      return 0;
+    }
+
+    if (key === "watched"){
+      va = String(va || "");
+      vb = String(vb || "");
+      if (!va && !vb) return 0;
+      if (!va) return 1;
+      if (!vb) return -1;
+      if (va < vb) return -1 * dir;
+      if (va > vb) return  1 * dir;
+      return 0;
+    }
+
+    const na = (va === "" || va == null) ? null : Number(va);
+    const nb = (vb === "" || vb == null) ? null : Number(vb);
+    if (na === null && nb === null) return 0;
+    if (na === null) return 1;
+    if (nb === null) return -1;
+    return (na - nb) * dir;
+  }
+
+  function setArrows(){
+    const keys = ["title","rating","service","watched","released"];
+    for (const k of keys){
+      const arrow = document.getElementById("arrow-" + k);
+      if (!arrow) continue;
+      if (k === sortKey) arrow.textContent = (sortDir === "asc") ? "↑" : "↓";
+      else arrow.textContent = "↕";
+    }
+  }
+
+  function td(label, value){
+    const cell = document.createElement("td");
+    cell.setAttribute("data-label", label);
+    cell.textContent = (value == null ? "" : String(value));
+    return cell;
+  }
+
+  function render(){
+    setArrows();
+    const q = el.searchTitle.value.trim().toLowerCase();
+
+    let list = movies.slice();
+    if (q){
+      list = list.filter(m => String(m.title || "").toLowerCase().includes(q));
+    }
+    list.sort((a,b) => compare(a,b,sortKey));
+
+    el.tbody.innerHTML = "";
+    for (const m of list){
+      const tr = document.createElement("tr");
+      tr.appendChild(td("Title", m.title));
+      tr.appendChild(td("Rating", m.rating));
+      tr.appendChild(td("Service", m.service));
+      tr.appendChild(td("Watched Date", m.watched));
+      tr.appendChild(td("Released", m.released));
+      el.tbody.appendChild(tr);
+    }
+
+    setStatus("Showing " + list.length + " of " + movies.length + " movies.");
+  }
+
+  function csvEscape(value){
+    let s = String(value == null ? "" : value);
+    const needs = (s.includes("\n") || s.includes("\r") || s.includes('"') || s.includes(","));
+    if (!needs) return s;
+    s = s.split('"').join('""');
+    return '"' + s + '"';
+  }
+
+  function downloadCSV(){
+    const header = ["Title","Rating","Service","Watched","Released"];
+    const lines = [header.join(",")];
+    for (const m of movies){
+      lines.push([
+        csvEscape(m.title),
+        csvEscape(m.rating),
+        csvEscape(m.service),
+        csvEscape(m.watched),
+        csvEscape(m.released),
+      ].join(","));
+    }
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "watched-movies-shared.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  el.searchTitle.addEventListener("input", render);
+  el.downloadBtn.addEventListener("click", downloadCSV);
+
+  const ths = el.table.querySelectorAll("thead th[data-key]");
+  for (const th of ths){
+    const key = th.getAttribute("data-key");
+    th.addEventListener("click", () => {
+      if (sortKey === key) sortDir = (sortDir === "asc") ? "desc" : "asc";
+      else { sortKey = key; sortDir = "asc"; }
+      render();
+    });
+  }
+
+  loadMovies();
+</script>
+</body>
+</html>
