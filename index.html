@@ -11,6 +11,30 @@ tbody{ display: table-row-group !important; }
 tr{ display: table-row !important; }
 td, th{ display: table-cell !important; }
 tbody td::before{ content: none !important; }
+  /* --- Reduce Title column width + allow wrapping --- */
+table { 
+  table-layout: fixed; 
+}
+
+th[data-key="title"],
+td[data-label="Title"]{
+  width: 28%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+th[data-key="rating"],  
+td[data-label="Rating"]  { width: 10%; }
+
+th[data-key="service"], 
+td[data-label="Service"] { width: 18%; }
+
+th[data-key="watched"], 
+td[data-label="Watched Date"] { width: 22%; }
+
+th[data-key="released"], 
+td[data-label="Released"] { width: 12%; }
   </style>
 </head>
 <body>
